@@ -1,0 +1,67 @@
+name: deploy-oci
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push code to server and restart service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            set -euxo pipefail
+            APP_DIR=/home/${{ secrets.OCI_USER }}/app
+            sudo mkdir -p "$APP_DIR"
+            sudo chown -R ${{ secrets.OCI_USER }}:${{ secrets.OCI_USER }} "$APP_DIR"
+
+            # 첫 배포 또는 업데이트
+            if [ ! -d "$APP_DIR/.git" ]; then
+              cd "$APP_DIR"
+              git init
+              git remote add origin https://github.com/${{ github.repository }}.git
+              git fetch origin main
+              git checkout -f main
+            else
+              cd "$APP_DIR"
+              git fetch origin main
+              git checkout -f main
+            fi
+
+            # 파이썬 가상환경
+            python3 -m venv "$APP_DIR/.venv"
+            . "$APP_DIR/.venv/bin/activate"
+            pip install -U pip wheel
+            pip install -r requirements.txt
+
+            # .env 없으면 샘플 복사(실서비스면 서버에서 따로 작성 권장)
+            [ -f "$APP_DIR/.env" ] || cp .env.example .env
+
+            # systemd 서비스
+            sudo tee /etc/systemd/system/flaskapp.service > /dev/null <<'EOF'
+            [Unit]
+            Description=Flask app (gunicorn)
+            After=network.target
+
+            [Service]
+            User=${{ secrets.OCI_USER }}
+            WorkingDirectory=/home/${{ secrets.OCI_USER }}/app
+            EnvironmentFile=/home/${{ secrets.OCI_USER }}/app/.env
+            ExecStart=/home/${{ secrets.OCI_USER }}/app/.venv/bin/gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:8000 wsgi:app
+            Restart=always
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            sudo systemctl daemon-reload
+            sudo systemctl enable flaskapp || true
+            sudo systemctl restart flaskapp
+
+            # Nginx 재로드(설정 변경 시)
+            sudo nginx -t && sudo systemctl reload nginx
