@@ -1,0 +1,6 @@
+flask
+gunicorn
+httpx[http2]
+beautifulsoup4
+apscheduler
+python-dotenv
