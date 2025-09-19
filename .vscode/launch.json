@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Flask (wsgi.py)",
+      "type": "python",
+      "request": "launch",
+      "program": "wsgi.py",
+      "console": "integratedTerminal",
+      "env": { "FLASK_ENV": "development" }
+    },
+    {
+      "name": "Attach debugpy",
+      "type": "python",
+      "request": "attach",
+      "connect": { "host": "localhost", "port": 5678 }
+    }
+  ]
+}
