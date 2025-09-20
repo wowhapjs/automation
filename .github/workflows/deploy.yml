@@ -16,7 +16,7 @@ jobs:
           key: ${{ secrets.OCI_SSH_KEY }}
           script: |
             set -euxo pipefail
-            APP_DIR=/home/${{ secrets.OCI_USER }}/app
+            APP_DIR=/home/${{ secrets.OCI_USER }}/radio
             sudo mkdir -p "$APP_DIR"
             sudo chown -R ${{ secrets.OCI_USER }}:${{ secrets.OCI_USER }} "$APP_DIR"
 
